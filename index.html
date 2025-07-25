@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Préstamos </title>
+    <!-- Agrega la referencia al manifest.json para PWA -->
+    <link rel="manifest" href="./manifest.json">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- jsPDF CDN for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-lg */
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        textarea {
+            padding: 0.75rem;
+            border: 1px solid #d1d5db; /* border-gray-300 */
+            border-radius: 0.5rem; /* rounded-lg */
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 1rem;
+            line-height: 1.5rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        input[type="date"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #4f46e5; /* focus:border-indigo-500 */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5); /* focus:ring-indigo-500 */
+        }
+        button {
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        .btn-primary {
+            background-color: #4f46e5; /* bg-indigo-600 */
+            color: #ffffff;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca; /* hover:bg-indigo-700 */
+        }
+        .btn-secondary {
+            background-color: #6b7280; /* bg-gray-500 */
+            color: #ffffff;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563; /* hover:bg-gray-600 */
+        }
+        .btn-success {
+            background-color: #10b981; /* bg-green-500 */
+            color: #ffffff;
+        }
+        .btn-success:hover {
+            background-color: #059669; /* hover:bg-green-600 */
+        }
+        .btn-info {
+            background-color: #3b82f6; /* bg-blue-500 */
+            color: #ffffff;
+        }
+        .btn-info:hover {
+            background-color: #2563eb; /* hover:bg-blue-600 */
+        }
+        .btn-warning {
+            background-color: #f59e0b; /* bg-yellow-500 */
+            color: #ffffff;
+        }
+        .btn-warning:hover {
+            background-color: #d97706; /* hover:bg-yellow-600 */
+        }
+        .message {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            font-weight: 500;
+        }
+        .message.success {
+            background-color: #d1fae5; /* bg-green-100 */
+            color: #065f46; /* text-green-700 */
+        }
+        .message.error {
+            background-color: #fee2e2; /* bg-red-100 */
+            color: #991b1b; /* text-red-700 */
+        }
+        .client-item, .loan-item {
+            border: 1px solid #e5e7eb; /* border-gray-200 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+        }
+        .client-item:hover, .loan-item:hover {
+            background-color: #f9fafb; /* hover:bg-gray-50 */
+        }
+        .client-item.selected {
+            background-color: #e0e7ff; /* bg-indigo-100 */
+            border-color: #6366f1; /* border-indigo-500 */
+            box-shadow: 0 2px 4px -1px rgba(99, 102, 241, 0.1), 0 1px 2px -1px rgba(99, 102, 241, 0.06);
+        }
+        .loan-item.selected {
+            background-color: #dcfce7; /* bg-green-100 */
+            border-color: #22c55e; /* border-green-500 */
+            box-shadow: 0 2px 4px -1px rgba(34, 197, 94, 0.1), 0 1px 2px -1px rgba(34, 197, 94, 0.06);
+        }
+
+        /* Table styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background-color: #e5e7eb; /* bg-gray-200 */
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            color: #4b5563; /* text-gray-700 */
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .installment-paid {
+            background-color: #ecfdf5; /* bg-green-50 */
+        }
+        .installment-overdue {
+            background-color: #fee2e2; /* bg-red-50 */
+        }
+        /* New styles for client table */
+        #clients-table-container table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #clients-table-container th, #clients-table-container td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+        #clients-table-container th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }
+        #clients-table-container tr.selected {
+            background-color: #e0e7ff; /* bg-indigo-100 */
+        }
+        #clients-table-container tr:hover {
+            background-color: #f9fafb;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-4xl font-extrabold text-center text-indigo-700 my-8">
+            Gestión de Préstamos COP (Offline)
+        </h1>
+
+        <div id="message-area" class="message hidden"></div>
+
+        <!-- Sección de Clientes -->
+        <div class="card bg-gray-50">
+            <h2 class="text-2xl font-bold text-indigo-600 mb-6">Clientes</h2>
+
+            <form id="client-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <input type="text" id="client-name" placeholder="Nombre Completo" required>
+                <input type="text" id="client-id" placeholder="Cédula / Identificación" required>
+                <input type="text" id="client-phone" placeholder="Teléfono" required>
+                <input type="text" id="client-address" placeholder="Dirección (Opcional)">
+                <button type="submit" class="col-span-1 md:col-span-2 btn-primary">
+                    Añadir Cliente
+                </button>
+            </form>
+
+            <h3 class="text-xl font-semibold text-gray-700 mb-4">Buscar Cliente</h3>
+            <input type="text" id="client-search-input" placeholder="Buscar por nombre o identificación..." class="mb-4">
+
+            <h3 class="text-xl font-semibold text-gray-700 mb-4">Lista de Clientes</h3>
+            <div id="clients-table-container" class="overflow-x-auto">
+                <table class="min-w-full bg-white rounded-lg shadow-sm">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Identificación</th>
+                            <th>Teléfono</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clients-table-body">
+                        <p class="text-gray-500 text-center py-4">Cargando clientes...</p>
+                    </tbody>
+                </table>
+            </div>
+            <div id="clients-pagination" class="flex justify-between items-center mt-4">
+                <button id="prev-client-page" class="btn-secondary px-4 py-2 rounded-lg" disabled>Anterior</button>
+                <span id="client-page-info" class="text-gray-700">Página 1 de 1</span>
+                <button id="next-client-page" class="btn-secondary px-4 py-2 rounded-lg" disabled>Siguiente</button>
+            </div>
+        </div>
+
+        <!-- Sección de Préstamos -->
+        <div id="loan-section" class="card bg-gray-50 hidden">
+            <h2 class="text-2xl font-bold text-indigo-600 mb-6">
+                Préstamos para <span id="selected-client-name" class="text-green-700"></span>
+            </h2>
+
+            <form id="loan-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <input type="number" id="loan-amount" placeholder="Monto del Préstamo (COP)" step="0.01" required>
+                <input type="number" id="loan-rate" placeholder="Tasa Interés Mensual (%)" step="0.01" required>
+                <input type="number" id="loan-installments" placeholder="Número de Cuotas" required>
+                <input type="date" id="loan-start-date" required>
+                <div class="col-span-1 md:col-span-2 flex items-center gap-4">
+                    <label for="interest-type" class="text-gray-700">Tipo de Interés:</label>
+                    <select id="interest-type" class="p-2 border rounded-lg">
+                        <option value="simple">Simple</option>
+                        <!-- <option value="compound">Compuesto (No implementado en este ejemplo)</option> -->
+                    </select>
+                </div>
+                <button type="submit" class="col-span-1 md:col-span-2 btn-primary">
+                    Añadir Préstamo
+                </button>
+            </form>
+
+            <h3 class="text-xl font-semibold text-gray-700 mb-4">Préstamos del Cliente</h3>
+            <div id="loans-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p class="text-gray-500">Seleccione un cliente para ver sus préstamos.</p>
+            </div>
+            <button id="download-client-history-pdf" class="btn-success mt-6 w-full hidden">
+                Descargar Historial PDF
+            </button>
+        </div>
+
+        <!-- Sección de Cronograma de Pagos y Registro de Pagos -->
+        <div id="payment-section" class="card bg-gray-50 hidden">
+            <h2 class="text-2xl font-bold text-indigo-600 mb-6">
+                Cronograma y Pagos para Préstamo de <span id="selected-loan-amount" class="text-green-700"></span>
+            </h2>
+
+            <div class="overflow-x-auto mb-8">
+                <table id="schedule-table" class="min-w-full bg-white rounded-lg shadow-sm">
+                    <thead>
+                        <tr>
+                            <th>Cuota #</th>
+                            <th>Fecha Venc.</th>
+                            <th>Capital</th>
+                            <th>Interés</th>
+                            <th>Total Cuota</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Schedule rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <button id="refinance-loan-btn" class="btn-warning mt-6 w-full hidden">
+                Refinanciar Crédito
+            </button>
+
+            <form id="payment-record-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-blue-200 rounded-lg bg-blue-50 hidden">
+                <h3 class="col-span-full text-lg font-semibold text-blue-700">
+                    Registrar Pago para Cuota #<span id="payment-installment-number"></span>
+                </h3>
+                <input type="number" id="payment-amount-received" placeholder="Monto Recibido" step="0.01" required>
+                <input type="date" id="payment-date" required>
+                <button type="submit" class="col-span-1 md:col-span-2 btn-info">
+                    Confirmar Pago
+                </button>
+                <button type="button" id="cancel-payment-btn" class="col-span-1 md:col-span-2 btn-secondary">
+                    Cancelar
+                </button>
+            </form>
+
+            <!-- Refinance Form -->
+            <div id="refinance-form-container" class="mt-8 p-6 border border-yellow-300 rounded-lg bg-yellow-50 hidden">
+                <h3 class="text-lg font-semibold text-yellow-700 mb-4">Refinanciar Préstamo Actual</h3>
+                <form id="refinance-loan-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label for="refinance-loan-amount" class="col-span-full text-sm text-gray-700">Monto del Nuevo Préstamo:</label>
+                    <input type="number" id="refinance-loan-amount" placeholder="Monto del Nuevo Préstamo (COP)" step="0.01" required>
+                    
+                    <input type="number" id="refinance-loan-rate" placeholder="Nueva Tasa Interés Mensual (%)" step="0.01" required>
+                    <input type="number" id="refinance-loan-installments" placeholder="Nuevo Número de Cuotas" required>
+                    <input type="date" id="refinance-loan-start-date" required>
+                    <button type="submit" class="col-span-1 md:col-span-2 btn-warning">
+                        Confirmar Refinanciación
+                    </button>
+                    <button type="button" id="cancel-refinance-btn" class="col-span-1 md:col-span-2 btn-secondary">
+                        Cancelar Refinanciación
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Sección de Reportes -->
+        <div class="card bg-gray-50">
+            <h2 class="text-2xl font-bold text-indigo-600 mb-6">Reportes (Básico)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="bg-white p-4 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-medium text-gray-700">Ingresos Totales (Intereses)</h3>
+                    <p id="report-total-interest" class="text-2xl font-bold text-green-700">$0,00</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-medium text-gray-700">Préstamos Activos</h3>
+                    <p id="report-active-loans" class="text-2xl font-bold text-blue-700">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm">
+                    <h3 class="text-lg font-medium text-gray-700">Cuotas Vencidas</h3>
+                    <p id="report-overdue-installments" class="text-2xl font-bold text-red-700">0</p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-500 mt-4">
+                *La exportación a PDF/Excel y notificaciones requerirían implementaciones adicionales.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // IndexedDB variables
+        let db;
+        const DB_NAME = 'LoanManagementDB';
+        const DB_VERSION = 1;
+        const CLIENTS_STORE = 'clients';
+        const LOANS_STORE = 'loans';
+
+        // UI elements
+        const messageArea = document.getElementById('message-area');
+        const clientForm = document.getElementById('client-form');
+        const clientsTableBody = document.getElementById('clients-table-body'); // Changed from clientsList
+        const clientSearchInput = document.getElementById('client-search-input');
+        const prevClientPageBtn = document.getElementById('prev-client-page');
+        const nextClientPageBtn = document.getElementById('next-client-page');
+        const clientPageInfo = document.getElementById('client-page-info');
+
+        const loanSection = document.getElementById('loan-section');
+        const selectedClientName = document.getElementById('selected-client-name');
+        const loanForm = document.getElementById('loan-form');
+        const loansList = document.getElementById('loans-list');
+        const paymentSection = document.getElementById('payment-section');
+        const selectedLoanAmount = document.getElementById('selected-loan-amount');
+        const scheduleTableBody = document.querySelector('#schedule-table tbody');
+        const paymentRecordForm = document.getElementById('payment-record-form');
+        const paymentInstallmentNumber = document.getElementById('payment-installment-number');
+        const paymentAmountReceived = document.getElementById('payment-amount-received');
+        const paymentDateInput = document.getElementById('payment-date');
+        const cancelPaymentBtn = document.getElementById('cancel-payment-btn');
+        const downloadClientHistoryPdfBtn = document.getElementById('download-client-history-pdf');
+
+        const refinanceLoanBtn = document.getElementById('refinance-loan-btn');
+        const refinanceFormContainer = document.getElementById('refinance-form-container');
+        const refinanceLoanForm = document.getElementById('refinance-loan-form');
+        const refinanceLoanAmountInput = document.getElementById('refinance-loan-amount');
+        const refinanceLoanRateInput = document.getElementById('refinance-loan-rate');
+        const refinanceLoanInstallmentsInput = document.getElementById('refinance-loan-installments');
+        const refinanceLoanStartDateInput = document.getElementById('refinance-loan-start-date');
+        const cancelRefinanceBtn = document.getElementById('cancel-refinance-btn');
+
+
+        // Report elements
+        const reportTotalInterest = document.getElementById('report-total-interest');
+        const reportActiveLoans = document.getElementById('report-active-loans');
+        const reportOverdueInstallments = document.getElementById('report-overdue-installments');
+
+        // State variables
+        let selectedClient = null;
+        let selectedLoan = null;
+        let selectedInstallmentIndex = null;
+
+        // Pagination variables for clients
+        let currentPage = 1;
+        const clientsPerPage = 10;
+        let allClients = []; // Store all clients for filtering and pagination
+
+        // --- Utility Functions ---
+
+        // Function to show messages to the user
+        function showMessage(msg, type = 'success') {
+            messageArea.textContent = msg;
+            messageArea.className = `message ${type}`;
+            messageArea.classList.remove('hidden');
+            setTimeout(() => {
+                messageArea.classList.add('hidden');
+            }, 5000); // Hide after 5 seconds
+        }
+
+        // Function to format currency to COP
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(amount);
+        }
+
+        // Function to calculate loan schedule (simple interest based on total loan value)
+        function calculateLoanSchedule(loanValue, monthlyRate, numInstallments, startDate) {
+            const schedule = [];
+            
+            // Calculate total interest based on initial loan value for the entire period
+            const totalInterest = loanValue * monthlyRate * numInstallments;
+            
+            // Calculate total amount to repay
+            const totalAmountToRepay = loanValue + totalInterest;
+            
+            // Calculate fixed installment amount
+            const fixedInstallmentAmount = totalAmountToRepay / numInstallments;
+            
+            // Calculate principal portion per installment
+            const principalPerInstallment = loanValue / numInstallments;
+            
+            // Calculate interest portion per installment (total interest divided by number of installments)
+            const interestPerInstallment = totalInterest / numInstallments;
+
+            for (let i = 1; i <= numInstallments; i++) {
+                const dueDate = new Date(startDate);
+                dueDate.setMonth(dueDate.getMonth() + i - 1); // Adjust for 0-indexed month in Date object
+
+                schedule.push({
+                    installmentNumber: i,
+                    dueDate: dueDate.toISOString().split('T')[0], // YYYY-MM-DD
+                    principal: principalPerInstallment,
+                    interest: interestPerInstallment,
+                    totalAmount: fixedInstallmentAmount,
+                    paid: false,
+                    paidDate: null,
+                    receivedAmount: 0,
+                });
+            }
+            return schedule;
+        }
+
+        // --- IndexedDB Functions ---
+
+        // Open or create the IndexedDB database
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onupgradeneeded = (event) => {
+                    db = event.target.result;
+                    
+                    // Create CLIENTS_STORE if it doesn't exist
+                    if (!db.objectStoreNames.contains(CLIENTS_STORE)) {
+                        db.createObjectStore(CLIENTS_STORE, { keyPath: 'id', autoIncrement: true });
+                    }
+
+                    // Create LOANS_STORE if it doesn't exist and create its index
+                    if (!db.objectStoreNames.contains(LOANS_STORE)) {
+                        const loansStore = db.createObjectStore(LOANS_STORE, { keyPath: 'id', autoIncrement: true });
+                        loansStore.createIndex('clientId', 'clientId', { unique: false });
+                    } else {
+                        // If LOANS_STORE already exists, ensure the index is present in case of upgrades
+                        const loansStore = event.target.transaction.objectStore(LOANS_STORE);
+                        if (!loansStore.indexNames.contains('clientId')) {
+                            loansStore.createIndex('clientId', 'clientId', { unique: false });
+                        }
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    console.log('IndexedDB opened successfully');
+                    resolve(db);
+                };
+
+                request.onerror = (event) => {
+                    console.error('IndexedDB error:', event.target.errorCode);
+                    reject('Error al abrir la base de datos local.');
+                };
+            });
+        }
+
+        // Add data to an object store
+        function addData(storeName, data) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.add(data);
+
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = (event) => reject(event.target.error);
+            });
+        }
+
+        // Get all data from an object store
+        function getAllData(storeName) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.getAll();
+
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = (event) => reject(event.target.error);
+            });
+        }
+
+        // Update data in an object store
+        function updateData(storeName, data) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.put(data); // put() updates if key exists, adds if not
+
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = (event) => reject(event.target.error);
+            });
+        }
+
+        // Get data by index
+        function getDataByIndex(storeName, indexName, key) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const index = store.index(indexName);
+                const request = index.getAll(key);
+
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = (event) => reject(event.target.error);
+            });
+        }
+
+        // --- Render Functions ---
+
+        // Render clients list with pagination and filter
+        async function renderClients() {
+            clientsTableBody.innerHTML = '<tr><td colspan="3" class="text-gray-500 text-center py-4">Cargando clientes...</td></tr>';
+            try {
+                allClients = await getAllData(CLIENTS_STORE); // Fetch all clients once
+                const filterText = clientSearchInput.value.toLowerCase();
+
+                const filteredClients = allClients.filter(client => 
+                    client.name.toLowerCase().includes(filterText) ||
+                    client.identification.toLowerCase().includes(filterText) ||
+                    client.phone.toLowerCase().includes(filterText)
+                );
+
+                const totalPages = Math.ceil(filteredClients.length / clientsPerPage);
+                currentPage = Math.min(currentPage, totalPages || 1); // Adjust current page if it exceeds new total
+                currentPage = Math.max(1, currentPage); // Ensure current page is at least 1
+
+                const startIndex = (currentPage - 1) * clientsPerPage;
+                const endIndex = startIndex + clientsPerPage;
+                const clientsToDisplay = filteredClients.slice(startIndex, endIndex);
+
+                clientsTableBody.innerHTML = ''; // Clear existing rows
+
+                if (clientsToDisplay.length === 0) {
+                    clientsTableBody.innerHTML = '<tr><td colspan="3" class="text-gray-500 text-center py-4">No hay clientes que coincidan con la búsqueda.</td></tr>';
+                    prevClientPageBtn.disabled = true;
+                    nextClientPageBtn.disabled = true;
+                    clientPageInfo.textContent = 'Página 0 de 0';
+                    return;
+                }
+
+                clientsToDisplay.forEach(client => {
+                    const row = clientsTableBody.insertRow();
+                    row.className = `client-row ${selectedClient && selectedClient.id === client.id ? 'selected' : ''}`;
+                    row.dataset.clientId = client.id; // Store client ID for selection
+
+                    row.insertCell().textContent = client.name;
+                    row.insertCell().textContent = client.identification;
+                    row.insertCell().textContent = client.phone;
+
+                    row.onclick = () => selectClient(client);
+                });
+
+                // Update pagination controls
+                prevClientPageBtn.disabled = currentPage === 1;
+                nextClientPageBtn.disabled = currentPage === totalPages;
+                clientPageInfo.textContent = `Página ${currentPage} de ${totalPages || 1}`;
+
+            } catch (error) {
+                console.error('Error rendering clients:', error);
+                showMessage('Error al cargar clientes.', 'error');
+            }
+        }
+
+        // Render loans list for selected client
+        async function renderLoans() {
+            loansList.innerHTML = '<p class="text-gray-500">Cargando préstamos...</p>';
+            if (!selectedClient) {
+                loansList.innerHTML = '<p class="text-gray-500">Seleccione un cliente para ver sus préstamos.</p>';
+                loanSection.classList.add('hidden');
+                paymentSection.classList.add('hidden');
+                downloadClientHistoryPdfBtn.classList.add('hidden'); // Hide PDF button
+                return;
+            }
+
+            loanSection.classList.remove('hidden');
+            selectedClientName.textContent = selectedClient.name;
+
+            try {
+                const loans = await getDataByIndex(LOANS_STORE, 'clientId', selectedClient.id);
+                if (loans.length === 0) {
+                    loansList.innerHTML = '<p class="text-gray-500">No hay préstamos para este cliente.</p>';
+                    downloadClientHistoryPdfBtn.classList.add('hidden'); // Hide PDF button if no loans
+                    return;
+                }
+                loansList.innerHTML = '';
+                loans.forEach(loan => {
+                    const summary = getLoanSummary(loan);
+                    const loanDiv = document.createElement('div');
+                    loanDiv.className = `loan-item ${selectedLoan && selectedLoan.id === loan.id ? 'selected' : ''}`;
+                    loanDiv.innerHTML = `
+                        <p class="font-semibold text-lg text-green-800">Valor: ${formatCurrency(loan.loanValue)}</p>
+                        <p class="text-sm text-gray-600">Cuotas: ${loan.numInstallments} | Tasa: ${(loan.monthlyRate * 100).toFixed(2)}%</p>
+                        <p class="text-sm text-gray-600">Fecha Inicio: ${loan.startDate}</p>
+                        <p class="text-sm text-gray-600">Estado: <span class="font-semibold ${loan.status === 'Activo' ? 'text-blue-600' : loan.status === 'Pagado' ? 'text-green-600' : loan.status === 'Refinanciado' ? 'text-yellow-600' : 'text-red-600'}">${loan.status}</span></p>
+                        <p class="text-sm text-gray-600">Saldo Pendiente: ${formatCurrency(summary.outstandingBalance)}</p>
+                        ${summary.overdueInstallments > 0 ? `<p class="text-sm text-red-500 font-semibold">Cuotas Vencidas: ${summary.overdueInstallments}</p>` : ''}
+                    `;
+                    loanDiv.onclick = () => selectLoan(loan);
+                    loansList.appendChild(loanDiv);
+                });
+                downloadClientHistoryPdfBtn.classList.remove('hidden'); // Show PDF button if loans exist
+            } catch (error) {
+                console.error('Error rendering loans:', error);
+                showMessage('Error al cargar préstamos.', 'error');
+            }
+        }
+
+        // Render loan schedule
+        function renderSchedule() {
+            scheduleTableBody.innerHTML = '';
+            paymentSection.classList.add('hidden');
+            paymentRecordForm.classList.add('hidden');
+            refinanceLoanBtn.classList.add('hidden'); // Hide refinance button by default
+            refinanceFormContainer.classList.add('hidden'); // Hide refinance form by default
+
+
+            if (!selectedLoan) {
+                return;
+            }
+
+            paymentSection.classList.remove('hidden');
+            selectedLoanAmount.textContent = formatCurrency(selectedLoan.loanValue);
+
+            const today = new Date().toISOString().split('T')[0];
+
+            selectedLoan.schedule.forEach((installment, index) => {
+                const row = scheduleTableBody.insertRow();
+                let rowClass = '';
+                if (installment.paid) {
+                    rowClass = 'installment-paid';
+                } else if (installment.dueDate < today) {
+                    rowClass = 'installment-overdue';
+                }
+                row.className = rowClass;
+
+                row.insertCell().textContent = installment.installmentNumber;
+                row.insertCell().textContent = installment.dueDate;
+                row.insertCell().textContent = formatCurrency(installment.principal);
+                row.insertCell().textContent = formatCurrency(installment.interest);
+                row.insertCell().textContent = formatCurrency(installment.totalAmount);
+
+                const statusCell = row.insertCell();
+                const statusSpan = document.createElement('span');
+                statusSpan.className = `font-semibold ${installment.paid ? 'text-green-600' : (installment.dueDate < today && !installment.paid ? 'text-red-600' : 'text-blue-600')}`;
+                statusSpan.textContent = installment.paid ? 'Pagada' : (installment.dueDate < today && !installment.paid ? 'Vencida' : 'Pendiente');
+                statusCell.appendChild(statusSpan);
+
+                if (installment.paid && installment.paidDate) {
+                    const paidDateP = document.createElement('p');
+                    paidDateP.className = 'text-xs text-gray-500';
+                    paidDateP.textContent = `(${installment.paidDate})`;
+                    statusCell.appendChild(paidDateP);
+                }
+                if (installment.paid && installment.receivedAmount > 0) {
+                    const receivedAmountP = document.createElement('p');
+                    receivedAmountP.className = 'text-xs text-gray-500';
+                    receivedAmountP.textContent = `Recibido: ${formatCurrency(installment.receivedAmount)}`;
+                    statusCell.appendChild(receivedAmountP);
+                }
+
+                const actionCell = row.insertCell();
+                if (!installment.paid) {
+                    const payButton = document.createElement('button');
+                    payButton.textContent = 'Registrar Pago';
+                    payButton.className = 'btn-info text-xs px-3 py-1';
+                    payButton.onclick = () => preparePayment(index, installment);
+                    actionCell.appendChild(payButton);
+                }
+            });
+
+            // Show refinance button only if the loan is active
+            if (selectedLoan.status === 'Activo') {
+                refinanceLoanBtn.classList.remove('hidden');
+            } else {
+                refinanceLoanBtn.classList.add('hidden');
+            }
+        }
+
+        // Render reports
+        async function renderReports() {
+            try {
+                const allLoans = await getAllData(LOANS_STORE);
+                let totalInterest = 0;
+                let activeLoansCount = 0;
+                let overdueInstallmentsCount = 0;
+
+                allLoans.forEach(loan => {
+                    // Only count active loans for reports
+                    if (loan.status === 'Activo') {
+                        const summary = getLoanSummary(loan);
+                        totalInterest += summary.totalInterestGenerated;
+                        activeLoansCount++;
+                        overdueInstallmentsCount += summary.overdueInstallments;
+                    }
+                });
+
+                reportTotalInterest.textContent = formatCurrency(totalInterest);
+                reportActiveLoans.textContent = activeLoansCount;
+                reportOverdueInstallments.textContent = overdueInstallmentsCount;
+
+            } catch (error) {
+                console.error('Error rendering reports:', error);
+                showMessage('Error al cargar reportes.', 'error');
+            }
+        }
+
+        // --- Event Handlers and Logic ---
+
+        // Select a client
+        function selectClient(client) {
+            selectedClient = client;
+            selectedLoan = null; // Deselect any loan when client changes
+            renderClients(); // Re-render to highlight selected client, keeping filter
+            renderLoans();
+            renderSchedule(); // Clear schedule when client changes
+            paymentRecordForm.classList.add('hidden'); // Hide payment form
+            refinanceFormContainer.classList.add('hidden'); // Hide refinance form
+            // The visibility of downloadClientHistoryPdfBtn is handled by renderLoans()
+        }
+
+        // Select a loan
+        function selectLoan(loan) {
+            selectedLoan = loan;
+            selectedInstallmentIndex = null; // Clear selected installment
+            renderLoans(); // Re-render to highlight selected loan
+            renderSchedule();
+            paymentRecordForm.classList.add('hidden'); // Hide payment form
+            refinanceFormContainer.classList.add('hidden'); // Hide refinance form
+            paymentDateInput.value = new Date().toISOString().split('T')[0]; // Set today's date
+        }
+
+        // Prepare payment form for an installment
+        function preparePayment(index, installment) {
+            selectedInstallmentIndex = index;
+            paymentInstallmentNumber.textContent = installment.installmentNumber;
+            paymentAmountReceived.value = installment.totalAmount.toFixed(2);
+            paymentRecordForm.classList.remove('hidden');
+            refinanceFormContainer.classList.add('hidden'); // Hide refinance form if payment is prepared
+        }
+
+        // --- Form Submissions ---
+
+        // Add Client Form Submission
+        clientForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('client-name').value;
+            const identification = document.getElementById('client-id').value;
+            const phone = document.getElementById('client-phone').value;
+            const address = document.getElementById('client-address').value;
+
+            if (!name || !identification || !phone) {
+                showMessage('Por favor, complete todos los campos obligatorios del cliente.', 'error');
+                return;
+            }
+
+            try {
+                await addData(CLIENTS_STORE, { name, identification, phone, address, createdAt: new Date() });
+                showMessage('Cliente añadido exitosamente.');
+                clientForm.reset();
+                currentPage = 1; // Reset to first page after adding a new client
+                renderClients(); // Re-render with current filter
+            } catch (error) {
+                console.error('Error adding client:', error);
+                showMessage('Error al añadir cliente.', 'error');
+            }
+        });
+
+        // Add Loan Form Submission
+        loanForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!selectedClient) {
+                showMessage('Por favor, seleccione un cliente primero.', 'error');
+                return;
+            }
+
+            const loanValue = parseFloat(document.getElementById('loan-amount').value);
+            const monthlyRate = parseFloat(document.getElementById('loan-rate').value) / 100;
+            const numInstallments = parseInt(document.getElementById('loan-installments').value, 10);
+            const startDate = document.getElementById('loan-start-date').value;
+            // const interestType = document.getElementById('interest-type').value; // For future compound interest
+
+            if (isNaN(loanValue) || isNaN(monthlyRate) || isNaN(numInstallments) || loanValue <= 0 || monthlyRate <= 0 || numInstallments <= 0 || !startDate) {
+                showMessage('Por favor, ingrese valores válidos para el préstamo y la fecha de inicio.', 'error');
+                return;
+            }
+
+            try {
+                const schedule = calculateLoanSchedule(loanValue, monthlyRate, numInstallments, new Date(startDate));
+                const newLoan = {
+                    clientId: selectedClient.id,
+                    clientName: selectedClient.name,
+                    loanValue: loanValue,
+                    monthlyRate: monthlyRate,
+                    numInstallments: numInstallments,
+                    startDate: startDate,
+                    schedule: schedule,
+                    createdAt: new Date(),
+                    status: 'Activo',
+                };
+                await addData(LOANS_STORE, newLoan);
+                showMessage('Préstamo añadido exitosamente.');
+                loanForm.reset();
+                renderLoans();
+                renderReports();
+            }
+            catch (error) {
+                console.error('Error adding loan:', error);
+                showMessage('Error al añadir préstamo.', 'error');
+            }
+        });
+
+        // Record Payment Form Submission
+        paymentRecordForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (selectedLoan === null || selectedInstallmentIndex === null) {
+                showMessage('Error: No se ha seleccionado un préstamo o cuota.', 'error');
+                return;
+            }
+
+            const amountReceived = parseFloat(paymentAmountReceived.value);
+            const paymentDate = paymentDateInput.value;
+
+            if (isNaN(amountReceived) || amountReceived <= 0 || !paymentDate) {
+                showMessage('Por favor, ingrese un monto de pago y fecha válidos.', 'error');
+                return;
+            }
+
+            try {
+                const updatedSchedule = [...selectedLoan.schedule];
+                const installmentToUpdate = updatedSchedule[selectedInstallmentIndex];
+
+                if (installmentToUpdate.paid) {
+                    showMessage('Esta cuota ya ha sido marcada como pagada.', 'error');
+                    return;
+                }
+
+                installmentToUpdate.paid = true;
+                installmentToUpdate.paidDate = paymentDate;
+                installmentToUpdate.receivedAmount = amountReceived;
+
+                // Check if all installments are paid to update loan status
+                const allPaid = updatedSchedule.every(inst => inst.paid);
+                selectedLoan.schedule = updatedSchedule; // Update local object
+                selectedLoan.status = allPaid ? 'Pagado' : 'Activo';
+
+                await updateData(LOANS_STORE, selectedLoan); // Save updated loan to IndexedDB
+                showMessage('Pago registrado exitosamente.');
+                paymentRecordForm.classList.add('hidden');
+                selectedInstallmentIndex = null; // Clear selected installment
+                renderSchedule(); // Re-render schedule
+                renderReports(); // Update reports
+            } catch (error) {
+                console.error('Error recording payment:', error);
+                showMessage('Error al registrar pago.', 'error');
+            }
+        });
+
+        // Cancel Payment Button
+        cancelPaymentBtn.addEventListener('click', () => {
+            paymentRecordForm.classList.add('hidden');
+            selectedInstallmentIndex = null;
+        });
+
+        // --- Refinance Logic ---
+        refinanceLoanBtn.addEventListener('click', () => {
+            if (!selectedLoan) {
+                showMessage('Por favor, seleccione un préstamo para refinanciar.', 'error');
+                return;
+            }
+            // Hide payment form if it's open
+            paymentRecordForm.classList.add('hidden');
+
+            // Pre-fill refinance amount with outstanding balance, but make it editable
+            const summary = getLoanSummary(selectedLoan);
+            refinanceLoanAmountInput.value = summary.outstandingBalance.toFixed(2);
+            refinanceLoanStartDateInput.value = new Date().toISOString().split('T')[0]; // Default to today
+
+            refinanceFormContainer.classList.remove('hidden');
+        });
+
+        cancelRefinanceBtn.addEventListener('click', () => {
+            refinanceFormContainer.classList.add('hidden');
+            refinanceLoanForm.reset();
+        });
+
+        refinanceLoanForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (!selectedLoan || selectedLoan.status !== 'Activo') {
+                showMessage('Solo se pueden refinanciar préstamos activos.', 'error');
+                return;
+            }
+
+            const newLoanValue = parseFloat(refinanceLoanAmountInput.value);
+            const newMonthlyRate = parseFloat(refinanceLoanRateInput.value) / 100;
+            const newNumInstallments = parseInt(refinanceLoanInstallmentsInput.value, 10);
+            const newStartDate = refinanceLoanStartDateInput.value;
+
+            if (isNaN(newLoanValue) || isNaN(newMonthlyRate) || isNaN(newNumInstallments) || newLoanValue <= 0 || newMonthlyRate <= 0 || newNumInstallments <= 0 || !newStartDate) {
+                showMessage('Por favor, ingrese valores válidos para la refinanciación.', 'error');
+                return;
+            }
+            
+            // Optional: Add a check if newLoanValue is less than outstandingBalance
+            const currentOutstanding = getLoanSummary(selectedLoan).outstandingBalance;
+            if (newLoanValue < currentOutstanding) {
+                showMessage('El monto del nuevo préstamo no puede ser menor que el saldo pendiente actual.', 'error');
+                return;
+            }
+
+            try {
+                // 1. Mark all remaining installments of the old loan as paid
+                const today = new Date().toISOString().split('T')[0];
+                selectedLoan.schedule = selectedLoan.schedule.map(inst => {
+                    if (!inst.paid) {
+                        return {
+                            ...inst,
+                            paid: true,
+                            paidDate: today, // Mark as paid today
+                            receivedAmount: inst.totalAmount // Assume full payment for cancellation
+                        };
+                    }
+                    return inst;
+                });
+                // 2. Update the old loan's status to 'Pagado'
+                selectedLoan.status = 'Pagado';
+                await updateData(LOANS_STORE, selectedLoan);
+
+                // 3. Create the new refinanced loan
+                const newSchedule = calculateLoanSchedule(newLoanValue, newMonthlyRate, newNumInstallments, new Date(newStartDate));
+                const refinancedLoan = {
+                    clientId: selectedClient.id,
+                    clientName: selectedClient.name,
+                    loanValue: newLoanValue,
+                    monthlyRate: newMonthlyRate,
+                    numInstallments: newNumInstallments,
+                    startDate: newStartDate,
+                    schedule: newSchedule,
+                    createdAt: new Date(),
+                    status: 'Activo', // The new loan is active
+                    refinancedFromLoanId: selectedLoan.id, // Link to the original loan
+                };
+                await addData(LOANS_STORE, refinancedLoan);
+
+                showMessage('Crédito refinanciado exitosamente. Se ha creado un nuevo préstamo y el anterior ha sido cancelado.', 'success');
+                refinanceLoanForm.reset();
+                refinanceFormContainer.classList.add('hidden');
+                selectedLoan = null; // Deselect current loan to force re-render
+                renderLoans(); // Re-render loans for the client
+                renderReports(); // Update reports
+                renderSchedule(); // Clear schedule
+            } catch (error) {
+                console.error('Error al refinanciar el crédito:', error);
+                showMessage('Error al refinanciar el crédito.', 'error');
+            }
+        });
+
+
+        // --- Loan Summary Calculation ---
+        function getLoanSummary(loan) {
+            if (!loan || !loan.schedule) return { totalPaid: 0, totalInterestGenerated: 0, outstandingBalance: 0, overdueInstallments: 0 };
+
+            let totalPaid = 0;
+            let totalInterestGenerated = 0;
+            let outstandingPrincipalPaid = 0;
+            let overdueInstallments = 0;
+            const today = new Date().toISOString().split('T')[0];
+
+            loan.schedule.forEach(inst => {
+                if (inst.paid) {
+                    totalPaid += inst.receivedAmount;
+                    totalInterestGenerated += inst.interest;
+                    outstandingPrincipalPaid += inst.principal;
+                } else {
+                    if (inst.dueDate < today) {
+                        overdueInstallments++;
+                    }
+                }
+            });
+
+            const outstandingBalance = loan.loanValue - outstandingPrincipalPaid;
+
+            return {
+                totalPaid,
+                totalInterestGenerated,
+                outstandingBalance: Math.max(0, outstandingBalance),
+                overdueInstallments,
+            };
+        }
+
+        // --- PDF Generation ---
+        downloadClientHistoryPdfBtn.addEventListener('click', async () => {
+            if (!selectedClient) {
+                showMessage('Por favor, seleccione un cliente para descargar su historial.', 'error');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            let y = 10; // Initial Y position
+
+            // Client Information
+            doc.setFontSize(16);
+            doc.text(`Historial de Préstamos - ${selectedClient.name}`, 10, y);
+            y += 10;
+            doc.setFontSize(12);
+            doc.text(`Identificación: ${selectedClient.identification}`, 10, y);
+            y += 7;
+            doc.text(`Teléfono: ${selectedClient.phone}`, 10, y);
+            y += 7;
+            if (selectedClient.address) {
+                doc.text(`Dirección: ${selectedClient.address}`, 10, y);
+                y += 7;
+            }
+            y += 10; // Spacer
+
+            try {
+                const clientLoans = await getDataByIndex(LOANS_STORE, 'clientId', selectedClient.id);
+
+                if (clientLoans.length === 0) {
+                    doc.setFontSize(12);
+                    doc.text('Este cliente no tiene préstamos registrados.', 10, y);
+                } else {
+                    for (const loan of clientLoans) {
+                        // Check for new page if content is too long
+                        if (y > doc.internal.pageSize.height - 50) { // Approximate page height - footer margin
+                            doc.addPage();
+                            y = 10;
+                        }
+
+                        doc.setFontSize(14);
+                        doc.text(`Préstamo (ID: ${loan.id})`, 10, y);
+                        y += 8;
+                        doc.setFontSize(10);
+                        doc.text(`Monto: ${formatCurrency(loan.loanValue)}`, 10, y);
+                        y += 5;
+                        doc.text(`Tasa Mensual: ${(loan.monthlyRate * 100).toFixed(2)}%`, 10, y);
+                        y += 5;
+                        doc.text(`Cuotas: ${loan.numInstallments}`, 10, y);
+                        y += 5;
+                        doc.text(`Fecha Inicio: ${loan.startDate}`, 10, y);
+                        y += 5;
+                        doc.text(`Estado: ${loan.status}`, 10, y);
+                        y += 10;
+
+                        // Add loan schedule table
+                        const scheduleData = loan.schedule.map(inst => [
+                            inst.installmentNumber,
+                            inst.dueDate,
+                            formatCurrency(inst.principal),
+                            formatCurrency(inst.interest),
+                            formatCurrency(inst.totalAmount),
+                            inst.paid ? 'Pagada' : (new Date(inst.dueDate) < new Date() && !inst.paid ? 'Vencida' : 'Pendiente'),
+                            inst.paidDate ? `(${inst.paidDate}) ${formatCurrency(inst.receivedAmount)}` : ''
+                        ]);
+
+                        doc.autoTable({
+                            startY: y,
+                            head: [['#', 'Fecha Venc.', 'Capital', 'Interés', 'Total Cuota', 'Estado', 'Detalle Pago']],
+                            body: scheduleData,
+                            theme: 'striped',
+                            headStyles: { fillColor: [79, 70, 229] }, // bg-indigo-600
+                            styles: { fontSize: 6, cellPadding: 1 }, // Further reduced font size and padding
+                            columnStyles: {
+                                0: { cellWidth: 7 },  // Reduced
+                                1: { cellWidth: 16 }, // Reduced
+                                2: { cellWidth: 20 }, // Reduced
+                                3: { cellWidth: 20 }, // Reduced
+                                4: { cellWidth: 20 }, // Reduced
+                                5: { cellWidth: 16 }, // Reduced
+                                6: { cellWidth: 30 }  // Reduced
+                            },
+                            didDrawPage: function (data) {
+                                // Footer
+                                var str = "Página " + doc.internal.getNumberOfPages();
+                                doc.setFontSize(8);
+                                doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+                            }
+                        });
+                        y = doc.autoTable.previous.finalY + 10; // Update Y position after table
+
+                        // Add loan summary
+                        const summary = getLoanSummary(loan);
+                        doc.setFontSize(10);
+                        doc.text(`Resumen del Préstamo:`, 10, y);
+                        y += 5;
+                        doc.text(`  Total Pagado: ${formatCurrency(summary.totalPaid)}`, 10, y);
+                        y += 5;
+                        doc.text(`  Intereses Generados: ${formatCurrency(summary.totalInterestGenerated)}`, 10, y);
+                        y += 5;
+                        doc.text(`  Saldo Pendiente: ${formatCurrency(summary.outstandingBalance)}`, 10, y);
+                        y += 10; // Spacer between loans
+                    }
+                }
+
+                doc.save(`historial_prestamos_${selectedClient.name.replace(/\s/g, '_')}.pdf`);
+                showMessage('Historial PDF generado exitosamente.');
+
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                showMessage('Error al generar el PDF del historial.', 'error');
+            }
+        });
+
+
+        // --- Initial Load ---
+        window.onload = async () => {
+            try {
+                await openDB();
+                await renderClients(); // Initial render of clients
+                renderReports();
+            } catch (error) {
+                console.error('Initial load error:', error);
+                showMessage('Error al iniciar la aplicación.', 'error');
+            }
+        };
+
+        // --- Event Listeners for Pagination ---
+        prevClientPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderClients();
+            }
+        });
+
+        nextClientPageBtn.addEventListener('click', () => {
+            const filterText = clientSearchInput.value.toLowerCase();
+            const filteredClients = allClients.filter(client => 
+                client.name.toLowerCase().includes(filterText) ||
+                client.identification.toLowerCase().includes(filterText) ||
+                client.phone.toLowerCase().includes(filterText)
+            );
+            const totalPages = Math.ceil(filteredClients.length / clientsPerPage);
+
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderClients();
+            }
+        });
+
+        // --- Event Listener for Client Search ---
+        clientSearchInput.addEventListener('input', () => {
+            currentPage = 1; // Reset to first page on new search
+            renderClients();
+        });
+
+        // Register Service Worker for PWA capabilities (optional but recommended for full offline)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js') // Asegúrate de que la ruta sea correcta
+                    .then(registration => {
+                        console.log('ServiceWorker registrado con éxito: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('Fallo el registro del ServiceWorker: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
